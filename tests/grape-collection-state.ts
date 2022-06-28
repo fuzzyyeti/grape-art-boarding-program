@@ -25,7 +25,7 @@ describe("grape-collection-state", () => {
     await provider.connection.confirmTransaction({
       blockhash: latestBlockHash.blockhash,
       lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: await provider.connection.requestAirdrop(collectionOwner.publicKey, LAMPORTS_PER_SOL * 1.1)
+      signature: await provider.connection.requestAirdrop(collectionOwner.publicKey, LAMPORTS_PER_SOL * 10)
     }
     );
 
@@ -48,7 +48,17 @@ describe("grape-collection-state", () => {
         anchor.utils.bytes.utf8.encode("collection-boarding"),
       verifiedCollectionAddress.publicKey.toBuffer()], program.programId);
 
+
     console.log('address found', collectionBoardingInfo.toBase58(), bump)
+    let payFeeTx = new anchor.web3.Transaction().add(SystemProgram.transfer({
+      fromPubkey: collectionOwner.publicKey,
+      toPubkey: collectionBoardingInfo,
+      lamports: LAMPORTS_PER_SOL * 1.1}));
+    let payFeeTxResult = await anchor.web3.sendAndConfirmTransaction(provider.connection,
+        payFeeTx, [collectionOwner])
+
+
+
     const tx = await program.methods.initialize(
       "Loquacious Ladybugs",
       collectionUpdateAuthority.publicKey,
@@ -59,10 +69,11 @@ describe("grape-collection-state", () => {
       collectionBoardingInfo,
       collectionOwner: collectionOwner.publicKey,
       verifiedCollectionAddress: verifiedCollectionAddress.publicKey,
-      systemProgram: SystemProgram.programId,
-      adminConfig: configKey.publicKey
+      adminConfig: configKey.publicKey,
+      systemProgram: SystemProgram.programId
     }
     ).signers([collectionOwner]).rpc();
+
     console.log("Your transaction signature", tx);
     let collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.verifiedCollectionAddress).to.eql(verifiedCollectionAddress.publicKey);
@@ -74,9 +85,6 @@ describe("grape-collection-state", () => {
     expect(collection.metaDataUrl).to.eql(META_DATA_URL);
     expect(collection.adminConfig).to.eql(configKey.publicKey);
 
-    // Approve a collection
-
-
     // Approve collection
     const approveTx = await program.methods.approve(true
     ).accounts({
@@ -86,6 +94,8 @@ describe("grape-collection-state", () => {
     }).signers([adminKey]).rpc();
     collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.isDaoApproved).is.true;
+    let adminAccount = await provider.connection.getAccountInfo(adminKey.publicKey);
+    expect(adminAccount.lamports).to.eql(LAMPORTS_PER_SOL);
 
     // Unapprove the collection
     const unapproveTx = await program.methods.approve(false
@@ -97,6 +107,8 @@ describe("grape-collection-state", () => {
     collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.isDaoApproved).is.false;
 
+
+
     const newAdminKey = anchor.web3.Keypair.generate();
     const udpateAdminTx = await program.methods.updateConfig(newAdminKey.publicKey
     ).accounts({
@@ -106,7 +118,7 @@ describe("grape-collection-state", () => {
     config = await program.account.config.fetch(configKey.publicKey);
     expect(config.admin).to.eql(newAdminKey.publicKey);
 
-    // Make sure old admin does not work anymore
+    // // Make sure old admin does not work anymore
     program.methods.approve(true
     ).accounts({
         collectionBoardingInfo,
@@ -117,8 +129,21 @@ describe("grape-collection-state", () => {
     .catch(e => {expect(e.error.code).to.eql('ConstraintHasOne');
                 expect(e.error.number).to.eql( 2001);
     });
+    //
+    // // Verify that new admin approve works
+    // Reload account with approval fee
 
-    // Verify that new admin approve works
+
+    const latestBlockHash2 = await provider.connection.getLatestBlockhash()
+    console.log('blockhash', latestBlockHash2)
+
+     payFeeTx = new anchor.web3.Transaction().add(SystemProgram.transfer({
+      fromPubkey: collectionOwner.publicKey,
+      toPubkey: collectionBoardingInfo,
+      lamports: LAMPORTS_PER_SOL * 1.2})); // Had to change the value. Seems same transaction can't be sent close together
+     payFeeTxResult = await anchor.web3.sendAndConfirmTransaction(provider.connection,
+        payFeeTx, [collectionOwner]);
+
     const newAdminApproveTx = await program.methods.approve(true
     ).accounts({
       collectionBoardingInfo,

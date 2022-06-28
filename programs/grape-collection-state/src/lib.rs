@@ -15,6 +15,9 @@ const FEE: u64 = LAMPORTS_PER_SOL;
 //ADMIN_ADDRESS = "71VQ9rieZPrw5TADjU3nXGRtxAhZLwKdn7URP5wsG8T8"
 #[program]
 pub mod grape_collection_state {
+    use std::borrow::Borrow;
+    use std::ops::Div;
+    use anchor_lang::solana_program::bpf_loader_upgradeable::close;
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>,
@@ -22,13 +25,7 @@ pub mod grape_collection_state {
                       collection_update_authority: Pubkey,
                       auction_house: Pubkey,
                       meta_data_url: String) -> Result<()> {
-        // Pay fee to initialize collection listing request
-      //  let seeds = [b"collection-boarding", collection_update_authority];
-       // let [expecected_collection_boarding_info, bump]  = find_pda(seeds, ctx.program_id);
- //       let collection_owner = ctx.accounts.collection_owner.to_account_info();
- //       let escrow = ctx.accounts.escrow.to_account_info();
-//        **collection_owner.try_borrow_mut_lamports()? -= FEE;
-    //    **escrow.try_borrow_mut_lamports()? += FEE;
+
         // Initialize account
         ctx.accounts.collection_boarding_info.name = name;
         ctx.accounts.collection_boarding_info.verified_collection_address = ctx.accounts.verified_collection_address.key();
@@ -43,6 +40,13 @@ pub mod grape_collection_state {
     }
 
     pub fn approve(ctx: Context<Admin>, is_approved: bool) -> Result<()> {
+
+        let admin = ctx.accounts.admin.to_account_info();
+        let escrow = ctx.accounts.collection_boarding_info.to_account_info();
+        if is_approved {
+            **escrow.try_borrow_mut_lamports()? -= FEE;
+            **admin.try_borrow_mut_lamports()? += FEE;
+        }
         ctx.accounts.collection_boarding_info.is_dao_approved = is_approved;
         Ok(())
     }
@@ -88,6 +92,7 @@ pub struct UpdateConfig<'info> {
 pub struct Admin<'info> {
     #[account(mut, has_one = admin_config)]
     pub collection_boarding_info: Account<'info, CollectionBoardingInfo>,
+    #[account(mut)]
     pub admin: Signer<'info>,
     #[account(has_one = admin)]
     pub admin_config: Account<'info, Config>
@@ -110,8 +115,6 @@ pub struct Initialize<'info> {
     pub collection_owner: Signer<'info>,
     /// CHECK: I don't know what I'm doing yet
     pub verified_collection_address: UncheckedAccount<'info>,
-  /// CHECK: I don't know what I'm doing yet
-//    pub escrow: AccountInfo<'info>,
     pub admin_config: Account<'info, Config>,
     pub system_program: Program<'info, System>,
 }
