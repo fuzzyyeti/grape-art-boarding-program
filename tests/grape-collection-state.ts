@@ -173,5 +173,32 @@ describe("grape-collection-state", () => {
     collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.hasMarketplaceToken).is.false;
 
+    payFeeTx = new anchor.web3.Transaction().add(SystemProgram.transfer({
+      fromPubkey: collectionOwner.publicKey,
+      toPubkey: collectionBoardingInfo,
+      lamports: LAMPORTS_PER_SOL * 1.3})); // Had to change the value. Seems same transaction can't be sent close together
+    payFeeTxResult = await anchor.web3.sendAndConfirmTransaction(provider.connection,
+        payFeeTx, [collectionOwner]);
+
+    let collectionAccount = await provider.connection.getAccountInfo(collectionOwner.publicKey);
+    expect(collection.hasMarketplaceToken).is.false;
+    const beforeLamports = collectionAccount.lamports;
+    let boardingInfoAccount = await provider.connection.getAccountInfo(collectionBoardingInfo);
+    const closingLamports = boardingInfoAccount.lamports
+    expect(closingLamports).to.be.gt(0);
+
+    const requestRefundTx = await program.methods.requestRefund()
+        .accounts({
+          collectionBoardingInfo: collectionBoardingInfo,
+          collectionOwner: collectionOwner.publicKey
+        }).signers([collectionOwner]).rpc();
+    collectionAccount = await provider.connection.getAccountInfo(collectionOwner.publicKey);
+    expect(collection.hasMarketplaceToken).is.false;
+    const afterLamports = collectionAccount.lamports;
+    expect(afterLamports).to.be.gt(beforeLamports);
+    boardingInfoAccount = await provider.connection.getAccountInfo(collectionBoardingInfo);
+    expect(boardingInfoAccount).to.eql(null);
+    expect(closingLamports).to.eql(afterLamports - beforeLamports);
+
   });
 });

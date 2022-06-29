@@ -34,6 +34,7 @@ pub mod grape_collection_state {
         ctx.accounts.collection_boarding_info.meta_data_url = meta_data_url;
         ctx.accounts.collection_boarding_info.is_dao_approved = false;
         ctx.accounts.collection_boarding_info.has_marketplace_token = false;
+        ctx.accounts.collection_boarding_info.collection_owner = ctx.accounts.collection_owner.key();
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
         ctx.accounts.collection_boarding_info.admin_config = ctx.accounts.admin_config.key();
         Ok(())
@@ -66,8 +67,24 @@ pub mod grape_collection_state {
         Ok(())
     }
 
+    pub fn request_refund(ctx: Context<Refund>) -> Result<()> {
+        let escrow = ctx.accounts.collection_boarding_info.to_account_info();
+        let receiver = ctx.accounts.collection_owner.to_account_info();
+        **receiver.try_borrow_mut_lamports()? += escrow.try_lamports()?;
+        **escrow.try_borrow_mut_lamports()? = 0;
+        Ok(())
+    }
+
 }
 
+
+#[derive(Accounts)]
+pub struct Refund<'info> {
+    #[account(mut)]
+    pub collection_owner: Signer<'info>,
+    #[account(mut, has_one = collection_owner)]
+    pub collection_boarding_info: Account<'info, CollectionBoardingInfo>
+}
 
 #[derive(Accounts)]
 pub struct InitializeConfig<'info> {
@@ -106,8 +123,9 @@ pub struct Initialize<'info> {
     payer = collection_owner,
     // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
     // + 32 collection_update_authority + 1 is_dao_approved + 1 has_marketplace_token
-    // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url + 1 bump
-    space = 8 + 4 + 200 + 32 + 32 + 1 + 1 + 32 + 32 + 4 + 200 + 1,
+    // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
+    // + 32 collection_owner + 1 bump
+    space = 8 + 4 + 200 + 32 + 32 + 1 + 1 + 32 + 32 + 4 + 200 + 32 + 1,
     seeds = [b"collection-boarding", verified_collection_address.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionBoardingInfo>,
@@ -134,5 +152,6 @@ pub struct CollectionBoardingInfo {
     auction_house: Pubkey,
     meta_data_url: String,
     admin_config: Pubkey,
+    collection_owner: Pubkey,
     bump: u8
 }
