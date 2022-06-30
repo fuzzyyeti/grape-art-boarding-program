@@ -57,8 +57,6 @@ describe("grape-collection-state", () => {
     let payFeeTxResult = await anchor.web3.sendAndConfirmTransaction(provider.connection,
         payFeeTx, [collectionOwner])
 
-
-
     const tx = await program.methods.initialize(
       "Loquacious Ladybugs",
       collectionUpdateAuthority.publicKey,
@@ -80,7 +78,6 @@ describe("grape-collection-state", () => {
     expect(collection.collectionUpdateAuthority).to.eql(collectionUpdateAuthority.publicKey);
     expect(collection.auctionHouse).to.eql(auctionHouse.publicKey);
     expect(collection.isDaoApproved).is.false;
-    expect(collection.hasMarketplaceToken).is.false;
     expect(collection.name).to.eql("Loquacious Ladybugs");
     expect(collection.metaDataUrl).to.eql(META_DATA_URL);
     expect(collection.adminConfig).to.eql(configKey.publicKey);
@@ -90,19 +87,32 @@ describe("grape-collection-state", () => {
     ).accounts({
         collectionBoardingInfo,
         admin: adminKey.publicKey,
-        adminConfig: configKey.publicKey
+        adminConfig: configKey.publicKey,
+        collectionOwner: collectionOwner.publicKey
     }).signers([adminKey]).rpc();
     collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.isDaoApproved).is.true;
     let adminAccount = await provider.connection.getAccountInfo(adminKey.publicKey);
     expect(adminAccount.lamports).to.eql(LAMPORTS_PER_SOL);
 
-    // Unapprove the collection
+    //Unapprove the collection
+    console.log('address found', collectionBoardingInfo.toBase58(), bump)
+    let returnFeeTx = new anchor.web3.Transaction().add(SystemProgram.transfer({
+      fromPubkey: collectionOwner.publicKey,
+      toPubkey: collectionBoardingInfo,
+      lamports: LAMPORTS_PER_SOL * .99}));
+    payFeeTxResult = await anchor.web3.sendAndConfirmTransaction(provider.connection,
+        returnFeeTx, [collectionOwner])
+    let acct = await provider.connection.getAccountInfo(collectionBoardingInfo);
+
+    console.log("This much here----:>", acct.lamports/LAMPORTS_PER_SOL)
+    expect(adminAccount.lamports).to.eql(LAMPORTS_PER_SOL);
     const unapproveTx = await program.methods.approve(false
     ).accounts({
         collectionBoardingInfo,
         admin: adminKey.publicKey,
-        adminConfig: configKey.publicKey
+        adminConfig: configKey.publicKey,
+        collectionOwner: collectionOwner.publicKey
     }).signers([adminKey]).rpc();
     collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.isDaoApproved).is.false;
@@ -123,7 +133,8 @@ describe("grape-collection-state", () => {
     ).accounts({
         collectionBoardingInfo,
         admin: adminKey.publicKey,
-        adminConfig: configKey.publicKey
+        adminConfig: configKey.publicKey,
+        collectionOwner: collectionOwner.publicKey
     }).signers([adminKey]).rpc()
     .then(() => { throw new Error("Wrong admin should fail")})
     .catch(e => {expect(e.error.code).to.eql('ConstraintHasOne');
@@ -149,29 +160,11 @@ describe("grape-collection-state", () => {
       collectionBoardingInfo,
       admin: newAdminKey.publicKey,
       adminConfig: configKey.publicKey,
+      collectionOwner: collectionOwner.publicKey
     }).signers([newAdminKey]).rpc();
     collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
     expect(collection.isDaoApproved).is.true;
 
-    // Verify token set
-    const setHasTokenTx = await program.methods.hasToken(true
-    ).accounts({
-      collectionBoardingInfo,
-      admin: newAdminKey.publicKey,
-      adminConfig: configKey.publicKey,
-    }).signers([newAdminKey]).rpc();
-    collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
-    expect(collection.hasMarketplaceToken).is.true;
-
-    // Verify token unset
-    const unsetHasTokenTx = await program.methods.hasToken(false
-    ).accounts({
-      collectionBoardingInfo,
-      admin: newAdminKey.publicKey,
-      adminConfig: configKey.publicKey,
-    }).signers([newAdminKey]).rpc();
-    collection = await program.account.collectionBoardingInfo.fetch(collectionBoardingInfo);
-    expect(collection.hasMarketplaceToken).is.false;
 
     payFeeTx = new anchor.web3.Transaction().add(SystemProgram.transfer({
       fromPubkey: collectionOwner.publicKey,
@@ -181,7 +174,6 @@ describe("grape-collection-state", () => {
         payFeeTx, [collectionOwner]);
 
     let collectionAccount = await provider.connection.getAccountInfo(collectionOwner.publicKey);
-    expect(collection.hasMarketplaceToken).is.false;
     const beforeLamports = collectionAccount.lamports;
     let boardingInfoAccount = await provider.connection.getAccountInfo(collectionBoardingInfo);
     const closingLamports = boardingInfoAccount.lamports
@@ -193,7 +185,6 @@ describe("grape-collection-state", () => {
           collectionOwner: collectionOwner.publicKey
         }).signers([collectionOwner]).rpc();
     collectionAccount = await provider.connection.getAccountInfo(collectionOwner.publicKey);
-    expect(collection.hasMarketplaceToken).is.false;
     const afterLamports = collectionAccount.lamports;
     expect(afterLamports).to.be.gt(beforeLamports);
     boardingInfoAccount = await provider.connection.getAccountInfo(collectionBoardingInfo);

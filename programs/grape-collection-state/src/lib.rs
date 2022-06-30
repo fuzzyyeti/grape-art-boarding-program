@@ -15,9 +15,6 @@ const FEE: u64 = LAMPORTS_PER_SOL;
 //ADMIN_ADDRESS = "71VQ9rieZPrw5TADjU3nXGRtxAhZLwKdn7URP5wsG8T8"
 #[program]
 pub mod grape_collection_state {
-    use std::borrow::Borrow;
-    use std::ops::Div;
-    use anchor_lang::solana_program::bpf_loader_upgradeable::close;
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>,
@@ -33,7 +30,6 @@ pub mod grape_collection_state {
         ctx.accounts.collection_boarding_info.auction_house = auction_house;
         ctx.accounts.collection_boarding_info.meta_data_url = meta_data_url;
         ctx.accounts.collection_boarding_info.is_dao_approved = false;
-        ctx.accounts.collection_boarding_info.has_marketplace_token = false;
         ctx.accounts.collection_boarding_info.collection_owner = ctx.accounts.collection_owner.key();
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
         ctx.accounts.collection_boarding_info.admin_config = ctx.accounts.admin_config.key();
@@ -44,16 +40,15 @@ pub mod grape_collection_state {
 
         let admin = ctx.accounts.admin.to_account_info();
         let escrow = ctx.accounts.collection_boarding_info.to_account_info();
+        let collection_owner = ctx.accounts.collection_owner.to_account_info();
         if is_approved {
             **escrow.try_borrow_mut_lamports()? -= FEE;
             **admin.try_borrow_mut_lamports()? += FEE;
+        } else {
+            **escrow.try_borrow_mut_lamports()? -= FEE;
+            **collection_owner.try_borrow_mut_lamports()? += FEE;
         }
         ctx.accounts.collection_boarding_info.is_dao_approved = is_approved;
-        Ok(())
-    }
-
-    pub fn has_token(ctx: Context<Admin>, has_token: bool) -> Result<()> {
-        ctx.accounts.collection_boarding_info.has_marketplace_token = has_token;
         Ok(())
     }
 
@@ -112,9 +107,10 @@ pub struct Admin<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     #[account(has_one = admin)]
-    pub admin_config: Account<'info, Config>
- //   #[account(mut)]
- //   pub escrow: AccountInfo<'info>
+    pub admin_config: Account<'info, Config>,
+    #[account(mut, address = collection_boarding_info.collection_owner)]
+    /// CHECK: only adding sol on un-approval, so data is not relevant
+    pub collection_owner: UncheckedAccount<'info>
 }
 
 #[derive(Accounts)]
@@ -122,10 +118,10 @@ pub struct Initialize<'info> {
     #[account(init,
     payer = collection_owner,
     // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
-    // + 32 collection_update_authority + 1 is_dao_approved + 1 has_marketplace_token
+    // + 32 collection_update_authority + 1 is_dao_approved
     // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
     // + 32 collection_owner + 1 bump
-    space = 8 + 4 + 200 + 32 + 32 + 1 + 1 + 32 + 32 + 4 + 200 + 32 + 1,
+    space = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 200 + 32 + 1,
     seeds = [b"collection-boarding", verified_collection_address.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionBoardingInfo>,
@@ -148,7 +144,6 @@ pub struct CollectionBoardingInfo {
     verified_collection_address: Pubkey,
     collection_update_authority: Pubkey,
     is_dao_approved: bool,
-    has_marketplace_token: bool,
     auction_house: Pubkey,
     meta_data_url: String,
     admin_config: Pubkey,
