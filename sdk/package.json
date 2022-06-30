@@ -1,0 +1,19 @@
+{
+  "name": "grape-art-listing-request",
+  "version": "0.0.1",
+  "description": "SDK for interacting with the on-chain program for requesting a listing on the NFT marketplaece, Grape.art.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Grape-Labs/grape-art-markteplace.git"
+  },
+  "author": "Fuzzy Yeti",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/Grape-Labs/grape-art-markteplace/issues"
+  },
+  "homepage": "https://github.com/Grape-Labs/grape-art-markteplace#readme"
+}

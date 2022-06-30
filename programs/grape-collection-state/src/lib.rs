@@ -82,7 +82,7 @@ pub struct Admin<'info> {
     #[account(has_one = admin)]
     pub admin_config: Account<'info, Config>,
     #[account(mut, address = collection_boarding_info.listing_requestor)]
-    /// CHECK: only adding sol on un-approval, so data is not relevant
+    /// CHECK: only adding sol on deny listing, so data is not relevant
     pub listing_requestor: UncheckedAccount<'info>
 }
 
