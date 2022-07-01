@@ -39,10 +39,15 @@ export const useListingRequest = (configurationKey = new PublicKey(CONFIGURATION
 export const useListingQuery = (configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
     const connection = useConnection()
     return {
+        //Must be approved by admin and token in listing requestor's wallet
         getAllApprovedListings: async () : Promise<CollectionBoardingInfo[]> => {
             return []
         },
+        //
         isApproved: async (verifiedCpllectionAddress: PublicKey) => {
+            return true
+        },
+        hasToken: async (verifiedCollectionAddress: PublicKey) => {
             return true
         }
     }
