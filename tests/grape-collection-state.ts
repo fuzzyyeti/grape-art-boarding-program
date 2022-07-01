@@ -49,7 +49,7 @@ describe("grape-collection-state", () => {
     // Set up collection
     const [collectionBoardingInfo, bump] = await PublicKey.findProgramAddress(
       [
-        anchor.utils.bytes.utf8.encode("collection-boarding"),
+        configKey.publicKey.toBuffer(),
         verifiedCollectionAddress.publicKey.toBuffer(),
       ],
       program.programId

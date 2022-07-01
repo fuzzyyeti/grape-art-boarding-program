@@ -44,6 +44,7 @@ pub mod grape_collection_state {
     }
 
     pub fn request_refund(ctx: Context<Refund>) -> Result<()> {
+
         let escrow = ctx.accounts.collection_boarding_info.to_account_info();
         let receiver = ctx.accounts.listing_requestor.to_account_info();
         **receiver.try_borrow_mut_lamports()? += escrow.try_lamports()?;
@@ -95,7 +96,7 @@ pub struct InitializeListingRequest<'info> {
     // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
     // + 32 listing_requestor + 1 bump
     space = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 200 + 32 + 1,
-    seeds = [b"collection-boarding", verified_collection_address.key().as_ref()],
+    seeds = [admin_config.key().as_ref(), verified_collection_address.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionListingRequest>,
     #[account(mut)]
