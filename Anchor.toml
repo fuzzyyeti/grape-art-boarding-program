@@ -1,7 +1,7 @@
 [features]
 seeds = false
 [programs.localnet]
-grape_collection_state = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+grape_collection_state = "8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3"
 
 [registry]
 url = "https://anchor.projectserum.com"

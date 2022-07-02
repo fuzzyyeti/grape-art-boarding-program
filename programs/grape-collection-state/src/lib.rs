@@ -1,9 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3");
 
-const FEE: u64 = LAMPORTS_PER_SOL;
 #[program]
 pub mod grape_collection_state {
     use super::*;
@@ -24,6 +23,7 @@ pub mod grape_collection_state {
         ctx.accounts.collection_boarding_info.listing_requestor = ctx.accounts.listing_requestor.key();
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
         ctx.accounts.collection_boarding_info.admin_config = ctx.accounts.admin_config.key();
+        ctx.accounts.collection_boarding_info.fee = ctx.accounts.admin_config.fee;
         Ok(())
     }
 
@@ -33,11 +33,11 @@ pub mod grape_collection_state {
         let escrow = ctx.accounts.collection_boarding_info.to_account_info();
         let listing_requestor = ctx.accounts.listing_requestor.to_account_info();
         if is_approved {
-            **escrow.try_borrow_mut_lamports()? -= FEE;
-            **admin.try_borrow_mut_lamports()? += FEE;
+            **escrow.try_borrow_mut_lamports()? -= ctx.accounts.admin_config.fee;
+            **admin.try_borrow_mut_lamports()? += ctx.accounts.admin_config.fee;
         } else {
-            **escrow.try_borrow_mut_lamports()? -= FEE;
-            **listing_requestor.try_borrow_mut_lamports()? += FEE;
+            **escrow.try_borrow_mut_lamports()? -= ctx.accounts.admin_config.fee;
+            **listing_requestor.try_borrow_mut_lamports()? += ctx.accounts.admin_config.fee;
         }
         ctx.accounts.collection_boarding_info.is_dao_approved = is_approved;
         Ok(())
@@ -52,13 +52,19 @@ pub mod grape_collection_state {
         Ok(())
     }
 
-    pub fn initialize_config(ctx: Context<InitializeConfig>, admin: Pubkey) -> Result<()> {
+    pub fn initialize_config(ctx: Context<InitializeConfig>, admin: Pubkey, fee: u64) -> Result<()> {
         ctx.accounts.admin_config.admin = admin;
+        ctx.accounts.admin_config.fee = fee;
         Ok(())
     }
 
     pub fn update_config(ctx: Context<UpdateConfig>, new_admin: Pubkey) -> Result<()> {
         ctx.accounts.admin_config.admin = new_admin;
+        Ok(())
+    }
+
+    pub fn set_fee(ctx: Context<UpdateConfig>, new_fee: u64) -> Result<()>{
+        ctx.accounts.admin_config.fee = new_fee;
         Ok(())
     }
 }
@@ -93,9 +99,9 @@ pub struct InitializeListingRequest<'info> {
     payer = listing_requestor,
     // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
     // + 32 collection_update_authority + 1 is_dao_approved
-    // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
-    // + 32 listing_requestor + 1 bump
-    space = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 200 + 32 + 1,
+    // + 32 auction_house + 4 meta_data_url length + 200 meta_data_url
+    // + 32 admin_confg + 32 listing_requestor + 1 bump + 8 fee
+    space = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 4 + 200 + 32 + 32 + 1 + 8,
     seeds = [admin_config.key().as_ref(), verified_collection_address.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionListingRequest>,
@@ -112,7 +118,7 @@ pub struct InitializeListingRequest<'info> {
 pub struct InitializeConfig<'info> {
     #[account(init,
     payer = funder,
-    space = 8 + 32)]
+    space = 8 + 32 + 8)]
     pub admin_config: Account<'info, Config>,
     #[account(mut)]
     pub funder: Signer<'info>,
@@ -129,18 +135,20 @@ pub struct UpdateConfig<'info> {
 
 #[account]
 pub struct Config {
-    admin: Pubkey
+    admin: Pubkey,
+    fee: u64
 }
 
 #[account]
 pub struct CollectionListingRequest {
-    name: String,
     verified_collection_address: Pubkey,
     collection_update_authority: Pubkey,
     is_dao_approved: bool,
     auction_house: Pubkey,
-    meta_data_url: String,
     admin_config: Pubkey,
     listing_requestor: Pubkey,
+    fee: u64,
+    name: String,
+    meta_data_url: String,
     bump: u8
 }

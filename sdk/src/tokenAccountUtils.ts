@@ -61,7 +61,9 @@ const TokenAccountSchema = new Map([
                 ['state','u8'],
                 ['is_native', 'u64'],
                 ['delegated_amount', 'u64'],
-                ['close_authority', [32]]]}]]);
+                ['close_authority', [32]],
+                ['nothing', 'u64'],
+                ['nothing2','u32']]}]]);
 
 
 export const deserializeTokenAccount = (tokenAccountData: Buffer) => {

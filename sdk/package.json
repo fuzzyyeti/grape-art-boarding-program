@@ -2,7 +2,7 @@
   "name": "grape-art-listing-request",
   "version": "0.0.1",
   "description": "SDK for interacting with the on-chain program for requesting a listing on the NFT marketplaece, Grape.art.",
-  "main": "index.js",
+  "main": "./dist/sdk/src/index.js",
   "scripts": {
     "build": "tsc"
   },
@@ -17,13 +17,15 @@
   },
   "homepage": "https://github.com/Grape-Labs/grape-art-markteplace#readme",
   "dependencies": {
-    "@solana/wallet-adapter-react": "^0.15.6",
+    "@solana/spl-token": "^0.2.0",
     "@solana/web3.js": "^1.47.0",
     "bn.js": "^5.2.1",
-    "borsh": "^0.7.0"
+    "borsh": "^0.7.0",
+    "bs58": "^5.0.0"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",
+    "@types/bs58": "^4.0.1",
     "@types/node": "^18.0.0",
     "ts-node": "^10.8.1",
     "typescript": "^4.7.4"
