@@ -7,18 +7,14 @@ import bs58 from 'bs58';
 import {deserializeTokenAccount} from "./tokenAccountUtils";
 import {ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID} from "@solana/spl-token";
 import BN from "bn.js";
-const CONFIGURATION_KEY = '48Q8knLizS8LN9GTBqTnseUeoB7FsayJhpvX7QMHC166'
+const CONFIGURATION_KEY = 'Aqaf2YUnJmqVk85tdQU3XFZmiTEnyaTtgGtGA6yFRDKk'
 const PROGRAM_ID = '8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3'
-const FEE = LAMPORTS_PER_SOL
 const GRAPE_MARKETPLACE_TOKEN = '2ForzAxeVUUCh7TaQQRudoGkjMbJiQUmjhuyq6mkhyTp'
 // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
 // + 32 collection_update_authority + 1 is_dao_approved
 // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
-// + 32 listing_requestor + 1 bump
-const COLLECTION_BOARDING_INFO_SIZE = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 200 + 32 + 1
-
-
-//8 + 4 + 200 +32 +32 + 1 +32
+// + 32 listing_requestor + 1 bump + 8 fee
+const COLLECTION_BOARDING_INFO_SIZE = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 200 + 32 + 1 + 8
 
 export type CollectionBoardingInfo = {
     name: string, // Maximum 200 characters
@@ -28,45 +24,18 @@ export type CollectionBoardingInfo = {
     meta_data_url: string, // Maximum 200 characters
 }
 
-export const useManageAdmin = (provider : anchor.AnchorProvider) => {
-    const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
-    return {
-        createConfig: async () => {
-            const configKey = anchor.web3.Keypair.generate();
-            return Promise.all([await program.methods
-                .initializeConfig(provider.wallet.publicKey, LAMPORTS_PER_SOL)
-                .accounts({
-                    adminConfig: configKey.publicKey,
-                    funder: provider.wallet.publicKey,
-                    systemProgram: SystemProgram.programId,
-                })
-                .signers([configKey])
-                .rpc(), configKey.publicKey.toBase58()])
-        },
-        updateAdmin: async (newAdmin: PublicKey) => {
-        }
-    }
-}
-
-export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
-    const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
-    return {
-    approveListing: async (verifiedCollectionAddress: PublicKey) => {
-        return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, true)
-    },
-    denyListing: async (verifiedCollectionAddress: PublicKey) => {
-        // TODO: Check if fee is needed and fund.
-        return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, false)
-    }
-}}
-
-const approveOrDeny = async (provider: anchor.AnchorProvider,
-                       program: Program<GrapeCollectionState>,
-                       verifiedCollectionAddress: PublicKey,
-                       configurationKey: PublicKey, approve: boolean) => {
-    const [listingRequest, seed] = await PublicKey.findProgramAddress(
+const getListingRequestFromCollectionAddress = async (verifiedCollectionAddress: PublicKey, configurationKey: PublicKey) => {
+    const [listingRequest, _] = await PublicKey.findProgramAddress(
         [configurationKey.toBuffer(),verifiedCollectionAddress.toBuffer()],
         new PublicKey(PROGRAM_ID))
+    return listingRequest
+}
+
+const approveOrDeny = async (provider: anchor.AnchorProvider,
+                             program: Program<GrapeCollectionState>,
+                             verifiedCollectionAddress: PublicKey,
+                             configurationKey: PublicKey, approve: boolean) => {
+    const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
     console.log("This is the PDA", listingRequest.toBase58())
     const listingRequestAccount = await program.account.collectionListingRequest.fetch(
         listingRequest
@@ -83,24 +52,87 @@ const approveOrDeny = async (provider: anchor.AnchorProvider,
         .rpc();
 }
 
-export const useListingRequest = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+export const useManageAdmin = (provider : anchor.AnchorProvider) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
-        requestListng: async (collectionBoardingInfo: CollectionBoardingInfo) => {
-            const [listingRequest, bump] = await PublicKey.findProgramAddress(
-                [
-                    configurationKey.toBuffer(),
-                    collectionBoardingInfo.verified_collection_address.toBuffer(),
-                ],
-                new PublicKey(PROGRAM_ID)
-            );
-            console.log('request', listingRequest.toBase58(), 'verified', collectionBoardingInfo.verified_collection_address.toBase58())
-            const rent_exemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
+        createConfig: async (fee: BN) => {
+            const configKey = anchor.web3.Keypair.generate();
+            return Promise.all([await program.methods
+                .initializeConfig(provider.wallet.publicKey, fee)
+                .accounts({
+                    adminConfig: configKey.publicKey,
+                    funder: provider.wallet.publicKey,
+                    systemProgram: SystemProgram.programId,
+                })
+                .signers([configKey])
+                .rpc(), configKey.publicKey.toBase58()])
+        },
+        updateAdmin: async (newAdminKey: PublicKey, adminConfig: PublicKey) => {
+            await program.methods
+                .updateConfig(newAdminKey)
+                .accounts({
+                    admin: provider.wallet.publicKey,
+                    adminConfig: adminConfig,
+                })
+                .rpc();
+        }
+    }
+}
+
+export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+    const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
+    return {
+    approveListing: async (verifiedCollectionAddress: PublicKey) => {
+        return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, true)
+    },
+    denyListing: async (verifiedCollectionAddress: PublicKey) => {
+        const [listingRequest, seed] = await PublicKey.findProgramAddress(
+            [configurationKey.toBuffer(),verifiedCollectionAddress.toBuffer()],
+            new PublicKey(PROGRAM_ID))
+        console.log("This is the PDA", listingRequest.toBase58())
+        // Check if listingRequest account has enough SOL to provide refund
+        const listingRequestAccountInfo = await provider.connection.getAccountInfo(listingRequest);
+        if (listingRequestAccountInfo == null)
+        {
+            throw Error(`Invalid listing request PDA ${listingRequest.toBase58()}`)
+        }
+        const listingRequestAccount = await program.account.collectionListingRequest.fetch(listingRequest);
+        const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
+        if(listingRequestAccountInfo.lamports < (listingRequestAccount.fee + rentExemption)) {
+            //Fund account to provide refund
             let payFeeTx = new anchor.web3.Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: provider.wallet.publicKey,
                     toPubkey: listingRequest,
-                    lamports: FEE + rent_exemption,
+                    lamports: listingRequestAccount.fee + rentExemption,
+                })
+            );
+            await provider.sendAndConfirm(payFeeTx)
+        }
+        return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, false)
+    }
+}}
+
+export const useListingRequest = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+    const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
+    return {
+        requestListng: async (collectionBoardingInfo: CollectionBoardingInfo) => {
+            const listingRequest = await getListingRequestFromCollectionAddress(
+                collectionBoardingInfo.verified_collection_address,
+                configurationKey)
+            console.log('request', listingRequest.toBase58(), 'verified', collectionBoardingInfo.verified_collection_address.toBase58())
+
+            // Get rent exemption listing requestor needs to pay
+            const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
+
+            // Get fee listing requestor needs to pay
+            const adm = await program.account.config.fetch(configurationKey)
+
+            let payFeeTx = new anchor.web3.Transaction().add(
+                SystemProgram.transfer({
+                    fromPubkey: provider.wallet.publicKey,
+                    toPubkey: listingRequest,
+                    lamports: adm.fee + rentExemption,
                 })
             );
             await provider.sendAndConfirm(payFeeTx)
@@ -120,7 +152,15 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
                 })
                 .rpc(), listingRequest.toBase58()])
         },
-        requestRefund: async (verifiedCollectionAddress: PublicKey) => {
+        requestListingRefund: async (verifiedCollectionAddress: PublicKey) => {
+            const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
+            return await program.methods
+                .requestRefund()
+                .accounts({
+                    listingRequestor: provider.wallet.publicKey,
+                    collectionBoardingInfo: listingRequest
+                })
+                .rpc();
         }
     }
 }
@@ -148,13 +188,7 @@ const accountFilter = async (approved: boolean, provider: anchor.AnchorProvider,
 export const useListingQuery = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     const getLisingRequest = async (verifiedCollectionAddress: PublicKey) => {
-        const [listingRequest, bump] = await PublicKey.findProgramAddress(
-            [
-                configurationKey.toBuffer(),
-                verifiedCollectionAddress.toBuffer(),
-            ],
-            new PublicKey(PROGRAM_ID)
-        );
+        const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
         return await program.account.collectionListingRequest.fetch(listingRequest)
     }
     return {
@@ -174,7 +208,7 @@ export const useListingQuery = (provider : anchor.AnchorProvider, configurationK
         },
         hasToken: async (verifiedCollectionAddress: PublicKey) => {
             const clr = await getLisingRequest(verifiedCollectionAddress)
-;            const [associatedTokenAccount, bump] = await PublicKey.findProgramAddress(
+            const [associatedTokenAccount, bump] = await PublicKey.findProgramAddress(
                 [
                     clr.listingRequestor.toBuffer(),
                     TOKEN_PROGRAM_ID.toBuffer(),
