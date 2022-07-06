@@ -1,5 +1,4 @@
-
-import {LAMPORTS_PER_SOL, PublicKey, SystemProgram} from "@solana/web3.js"
+import {PublicKey, SystemProgram} from "@solana/web3.js"
 import { GrapeCollectionState, IDL } from "../../target/types/grape_collection_state"
 import * as anchor from "@project-serum/anchor"
 import {Program} from "@project-serum/anchor";
@@ -104,7 +103,7 @@ export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = ne
                 SystemProgram.transfer({
                     fromPubkey: provider.wallet.publicKey,
                     toPubkey: listingRequest,
-                    lamports: listingRequestAccount.fee + rentExemption,
+                    lamports: (listingRequestAccount.fee.toNumber() + rentExemption) - listingRequestAccountInfo.lamports,
                 })
             );
             await provider.sendAndConfirm(payFeeTx)
@@ -132,7 +131,7 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
                 SystemProgram.transfer({
                     fromPubkey: provider.wallet.publicKey,
                     toPubkey: listingRequest,
-                    lamports: adm.fee + rentExemption,
+                    lamports: adm.fee.toNumber() + rentExemption,
                 })
             );
             await provider.sendAndConfirm(payFeeTx)

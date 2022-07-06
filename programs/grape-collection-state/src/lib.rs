@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 
 declare_id!("8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3");
 
