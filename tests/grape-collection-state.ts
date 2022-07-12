@@ -94,7 +94,8 @@ describe("grape-collection-state", () => {
         "Loquacious Ladybugs",
         collectionUpdateAuthority.publicKey,
         auctionHouse.publicKey,
-        META_DATA_URL
+        META_DATA_URL,
+        "test type"
       )
       .accounts({
         collectionBoardingInfo,
@@ -118,6 +119,7 @@ describe("grape-collection-state", () => {
     expect(collection.auctionHouse).to.eql(auctionHouse.publicKey);
     expect(collection.isDaoApproved).is.false;
     expect(collection.name).to.eql("Loquacious Ladybugs");
+    expect(collection.tokenType).to.eql("test type");
     expect(collection.metaDataUrl).to.eql(META_DATA_URL);
     expect(collection.adminConfig).to.eql(configKey.publicKey);
     expect((new BN(LAMPORTS_PER_SOL)).eq(collection.fee)).to.eql(true)
@@ -330,7 +332,8 @@ describe("grape-collection-state", () => {
               "Loquacious Ladybugs",
               collectionUpdateAuthority.publicKey,
               auctionHouse.publicKey,
-              META_DATA_URL
+              META_DATA_URL,
+              "test type"
           )
           .accounts({
               collectionBoardingInfo,

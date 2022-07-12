@@ -72,7 +72,7 @@ export const useManageAdmin = (provider : anchor.AnchorProvider) => {
                 .rpc(), configKey.publicKey.toBase58()])
         },
         updateAdmin: async (newAdminKey: PublicKey, adminConfig: PublicKey) => {
-            await program.methods
+            return program.methods
                 .updateConfig(newAdminKey)
                 .accounts({
                     admin: provider.wallet.publicKey,

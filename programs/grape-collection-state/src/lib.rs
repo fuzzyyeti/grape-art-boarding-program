@@ -7,10 +7,11 @@ pub mod grape_collection_state {
     use super::*;
 
     pub fn initialize_listing_request(ctx: Context<InitializeListingRequest>,
-                      name: String,
-                      collection_update_authority: Pubkey,
-                      auction_house: Pubkey,
-                      meta_data_url: String) -> Result<()> {
+                                      name: String,
+                                      collection_update_authority: Pubkey,
+                                      auction_house: Pubkey,
+                                      meta_data_url: String,
+                                      token_type: String) -> Result<()> {
 
         // Initialize colletion boarding data
         ctx.accounts.collection_boarding_info.name = name;
@@ -23,6 +24,7 @@ pub mod grape_collection_state {
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
         ctx.accounts.collection_boarding_info.admin_config = ctx.accounts.admin_config.key();
         ctx.accounts.collection_boarding_info.fee = ctx.accounts.admin_config.fee;
+        ctx.accounts.collection_boarding_info.token_type = token_type;
         Ok(())
     }
 
@@ -96,11 +98,15 @@ pub struct Admin<'info> {
 pub struct InitializeListingRequest<'info> {
     #[account(init,
     payer = listing_requestor,
-    // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
+    // space: 8 discriminator + 32 verified_collection_address
     // + 32 collection_update_authority + 1 is_dao_approved
-    // + 32 auction_house + 4 meta_data_url length + 200 meta_data_url
-    // + 32 admin_confg + 32 listing_requestor + 1 bump + 8 fee
-    space = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 4 + 200 + 32 + 32 + 1 + 8,
+    // + 32 auction_house
+    // + 32 listing_requestor + 8 fee
+    // + 32 admin_confg 4 listing_type length + 40 listing_type
+    // + 4 name length + 200 name
+    //  + 4 meta_data_url length + 200 meta_data_url
+    //  + 1 bump
+    space = 8 + 32 + 32 + 1 + 32 + 32 + 8 + 32 + 4 + 40 + 4 + 200 + 4 + 200 + 1,
     seeds = [admin_config.key().as_ref(), verified_collection_address.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionListingRequest>,
@@ -147,6 +153,7 @@ pub struct CollectionListingRequest {
     admin_config: Pubkey,
     listing_requestor: Pubkey,
     fee: u64,
+    token_type: String,
     name: String,
     meta_data_url: String,
     bump: u8
