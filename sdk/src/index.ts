@@ -17,16 +17,18 @@ const COLLECTION_BOARDING_INFO_SIZE = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 
 
 export type CollectionBoardingInfo = {
     name: string, // Maximum 200 characters
-    verified_collection_address: PublicKey,
     collection_update_authority: PublicKey,
+    verified_collection_address?: PublicKey,
+    governance?: PublicKey,
     auction_house: PublicKey,
     meta_data_url: string, // Maximum 200 characters
+    vanity_url: string
     token_type: string
 }
 
-const getListingRequestFromCollectionAddress = async (verifiedCollectionAddress: PublicKey, configurationKey: PublicKey) => {
+const getListingRequestFromCollectionAddress = async (seed: PublicKey, configurationKey: PublicKey) => {
     const [listingRequest, _] = await PublicKey.findProgramAddress(
-        [configurationKey.toBuffer(),verifiedCollectionAddress.toBuffer()],
+        [configurationKey.toBuffer(),seed.toBuffer()],
         new PublicKey(PROGRAM_ID))
     return listingRequest
 }
@@ -86,12 +88,12 @@ export const useManageAdmin = (provider : anchor.AnchorProvider) => {
 export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
-    approveListing: async (verifiedCollectionAddress: PublicKey) => {
-        return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, true)
+    approveListing: async (seed: PublicKey) => {
+        return await approveOrDeny(provider, program, seed, configurationKey, true)
     },
-    denyListing: async (verifiedCollectionAddress: PublicKey) => {
-        const [listingRequest, seed] = await PublicKey.findProgramAddress(
-            [configurationKey.toBuffer(),verifiedCollectionAddress.toBuffer()],
+    denyListing: async (seed: PublicKey) => {
+        const [listingRequest, _bump] = await PublicKey.findProgramAddress(
+            [configurationKey.toBuffer(),seed.toBuffer()],
             new PublicKey(PROGRAM_ID))
         console.log("This is the PDA", listingRequest.toBase58())
         // Check if listingRequest account has enough SOL to provide refund
@@ -122,9 +124,9 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
     return {
         requestListng: async (collectionBoardingInfo: CollectionBoardingInfo) => {
             const listingRequest = await getListingRequestFromCollectionAddress(
-                collectionBoardingInfo.verified_collection_address,
+                collectionBoardingInfo.verified_collection_address || collectionBoardingInfo.collection_update_authority,
                 configurationKey)
-            console.log('request', listingRequest.toBase58(), 'verified', collectionBoardingInfo.verified_collection_address.toBase58())
+            console.log('request', listingRequest.toBase58(), 'verified', (collectionBoardingInfo.verified_collection_address || collectionBoardingInfo.collection_update_authority).toBase58())
 
             // Get rent exemption listing requestor needs to pay
             const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
@@ -142,23 +144,26 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
             const initTx = await program.methods
                 .initializeListingRequest(
                     collectionBoardingInfo.name,
-                    collectionBoardingInfo.collection_update_authority,
                     collectionBoardingInfo.auction_house,
+                    collectionBoardingInfo.governance!,
                     collectionBoardingInfo.meta_data_url,
+                    collectionBoardingInfo.vanity_url,
                     collectionBoardingInfo.token_type
                 )
                 .accounts({
                     collectionBoardingInfo: listingRequest,
                     listingRequestor: provider.wallet.publicKey,
                     verifiedCollectionAddress: collectionBoardingInfo.verified_collection_address,
+                    updateAuthority: collectionBoardingInfo.collection_update_authority,
+                    seed: collectionBoardingInfo.verified_collection_address,
                     adminConfig: configurationKey,
                     systemProgram: SystemProgram.programId,
                 }).transaction()
             const bothTx = payFeeTx.add(initTx)
             return Promise.all([provider.sendAndConfirm(bothTx), listingRequest.toBase58()])
         },
-        requestListingRefund: async (verifiedCollectionAddress: PublicKey) => {
-            const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
+        requestListingRefund: async (seed: PublicKey) => {
+            const listingRequest = await getListingRequestFromCollectionAddress(seed, configurationKey)
             return await program.methods
                 .requestRefund()
                 .accounts({
@@ -186,6 +191,7 @@ const accountFilter = async (approved: boolean, provider: anchor.AnchorProvider,
             collection_update_authority: clr.collectionUpdateAuthority,
             auction_house: clr.auctionHouse,
             meta_data_url: clr.metaDataUrl, // Maximum 200 characters
+            vanity_url: clr.vanityUrl,
             token_type: clr.tokenType
         }
     }))
@@ -193,8 +199,8 @@ const accountFilter = async (approved: boolean, provider: anchor.AnchorProvider,
 
 export const useListingQuery = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
-    const getLisingRequest = async (verifiedCollectionAddress: PublicKey) => {
-        const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
+    const getLisingRequest = async (seed: PublicKey) => {
+        const listingRequest = await getListingRequestFromCollectionAddress(seed, configurationKey)
         return await program.account.collectionListingRequest.fetch(listingRequest)
     }
     return {
@@ -212,8 +218,8 @@ export const useListingQuery = (provider : anchor.AnchorProvider, configurationK
             return clr.isDaoApproved
 
         },
-        hasToken: async (verifiedCollectionAddress: PublicKey) => {
-            const clr = await getLisingRequest(verifiedCollectionAddress)
+        hasToken: async (seed: PublicKey) => {
+            const clr = await getLisingRequest(seed)
             const [associatedTokenAccount, bump] = await PublicKey.findProgramAddress(
                 [
                     clr.listingRequestor.toBuffer(),

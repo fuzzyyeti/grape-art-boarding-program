@@ -6,7 +6,7 @@ import { expect } from "chai";
 import BN from "bn.js";
 const META_DATA_URL =
     "https://shdw-drive.genesysgo.net/6MM7GSocTFnAtwevaeyzj4eB1TSYKwx17cduKXExZAut/verified_collections.json";
-
+const VANITY_URL = "http://vanityurl.org";
 const generateNewSetup = async () => {
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(anchor.AnchorProvider.env());
@@ -16,6 +16,7 @@ const generateNewSetup = async () => {
     const verifiedCollectionAddress = anchor.web3.Keypair.generate();
     const collectionUpdateAuthority = anchor.web3.Keypair.generate();
     const auctionHouse = anchor.web3.Keypair.generate();
+    const governance = anchor.web3.Keypair.generate();
 
     // Set up payer
     const latestBlockHash = await provider.connection.getLatestBlockhash();
@@ -37,7 +38,8 @@ const generateNewSetup = async () => {
         verifiedCollectionAddress,
         provider,
         collectionUpdateAuthority,
-        auctionHouse}
+        auctionHouse,
+        governance}
 }
 
 describe("grape-collection-state", () => {
@@ -52,7 +54,8 @@ describe("grape-collection-state", () => {
           verifiedCollectionAddress,
           provider,
           collectionUpdateAuthority,
-          auctionHouse} = await generateNewSetup()
+          auctionHouse,
+          governance} = await generateNewSetup()
 
     await program.methods
       .initializeConfig(adminKey.publicKey, new BN(LAMPORTS_PER_SOL))
@@ -92,17 +95,20 @@ describe("grape-collection-state", () => {
     await program.methods
       .initializeListingRequest(
         "Loquacious Ladybugs",
-        collectionUpdateAuthority.publicKey,
         auctionHouse.publicKey,
+        governance.publicKey,
         META_DATA_URL,
+        VANITY_URL,
         "test type"
       )
       .accounts({
-        collectionBoardingInfo,
-        listingRequestor: listingRequestor.publicKey,
-        verifiedCollectionAddress: verifiedCollectionAddress.publicKey,
-        adminConfig: configKey.publicKey,
-        systemProgram: SystemProgram.programId,
+          collectionBoardingInfo,
+          listingRequestor: listingRequestor.publicKey,
+          updateAuthority: collectionUpdateAuthority.publicKey,
+          seed: verifiedCollectionAddress.publicKey,
+          verifiedCollectionAddress: verifiedCollectionAddress.publicKey,
+          adminConfig: configKey.publicKey,
+          systemProgram: SystemProgram.programId,
       })
       .signers([listingRequestor])
       .rpc();
@@ -121,8 +127,10 @@ describe("grape-collection-state", () => {
     expect(collection.name).to.eql("Loquacious Ladybugs");
     expect(collection.tokenType).to.eql("test type");
     expect(collection.metaDataUrl).to.eql(META_DATA_URL);
+    expect(collection.vanityUrl).to.eql(VANITY_URL);
     expect(collection.adminConfig).to.eql(configKey.publicKey);
-    expect((new BN(LAMPORTS_PER_SOL)).eq(collection.fee)).to.eql(true)
+    expect(collection.governance).to.eql(governance.publicKey);
+    expect((new BN(LAMPORTS_PER_SOL)).eq(collection.fee)).to.eql(true);
 
     // Approve collection
     await program.methods
@@ -286,7 +294,8 @@ describe("grape-collection-state", () => {
           verifiedCollectionAddress,
           provider,
           collectionUpdateAuthority,
-          auctionHouse} = await generateNewSetup()
+          auctionHouse,
+          governance} = await generateNewSetup()
       await program.methods
           .initializeConfig(adminKey.publicKey, new BN(LAMPORTS_PER_SOL))
           .accounts({
@@ -330,15 +339,18 @@ describe("grape-collection-state", () => {
       await program.methods
           .initializeListingRequest(
               "Loquacious Ladybugs",
-              collectionUpdateAuthority.publicKey,
               auctionHouse.publicKey,
+              governance.publicKey,
               META_DATA_URL,
+              VANITY_URL,
               "test type"
           )
           .accounts({
               collectionBoardingInfo,
               listingRequestor: listingRequestor.publicKey,
               verifiedCollectionAddress: verifiedCollectionAddress.publicKey,
+              updateAuthority: collectionUpdateAuthority.publicKey,
+              seed: verifiedCollectionAddress.publicKey,
               adminConfig: configKey.publicKey,
               systemProgram: SystemProgram.programId,
           })

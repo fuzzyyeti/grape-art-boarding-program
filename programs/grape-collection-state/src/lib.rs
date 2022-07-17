@@ -8,17 +8,32 @@ pub mod grape_collection_state {
 
     pub fn initialize_listing_request(ctx: Context<InitializeListingRequest>,
                                       name: String,
-                                      collection_update_authority: Pubkey,
                                       auction_house: Pubkey,
+                                      governance: Option<Pubkey>,
                                       meta_data_url: String,
+                                      vanity_url: String,
                                       token_type: String) -> Result<()> {
-
+        if let Some(pubKey) = governance {
+            ctx.accounts.collection_boarding_info.governance = pubKey;
+        } else {
+            ctx.accounts.collection_boarding_info.governance = Pubkey::default();
+        }
+        let (listing_request_pda, bump) = Pubkey::find_program_address(
+            &[
+                &ctx.accounts.admin_config.key().as_ref(),
+                &ctx.accounts.seed.key().as_ref()],
+            ctx.program_id
+        );
+        if listing_request_pda != ctx.accounts.collection_boarding_info.key()  {                         // Confirm if passed in PDA address is the same
+            return Err(ErrorCode::StateInvalidAddress.into())
+        }
         // Initialize colletion boarding data
         ctx.accounts.collection_boarding_info.name = name;
         ctx.accounts.collection_boarding_info.verified_collection_address = ctx.accounts.verified_collection_address.key();
-        ctx.accounts.collection_boarding_info.collection_update_authority = collection_update_authority;
+        ctx.accounts.collection_boarding_info.collection_update_authority = ctx.accounts.update_authority.key();
         ctx.accounts.collection_boarding_info.auction_house = auction_house;
         ctx.accounts.collection_boarding_info.meta_data_url = meta_data_url;
+        ctx.accounts.collection_boarding_info.vanity_url = vanity_url;
         ctx.accounts.collection_boarding_info.is_dao_approved = false;
         ctx.accounts.collection_boarding_info.listing_requestor = ctx.accounts.listing_requestor.key();
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
@@ -107,13 +122,18 @@ pub struct InitializeListingRequest<'info> {
     //  + 4 meta_data_url length + 200 meta_data_url
     //  + 1 bump
     space = 8 + 32 + 32 + 1 + 32 + 32 + 8 + 32 + 4 + 40 + 4 + 200 + 4 + 200 + 1,
-    seeds = [admin_config.key().as_ref(), verified_collection_address.key().as_ref()],
+    seeds = [admin_config.key().as_ref(), seed.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionListingRequest>,
     #[account(mut)]
     pub listing_requestor: Signer<'info>,
-    /// CHECK: I don't know what I'm doing yet
+    /// CHECK: This is used to identify the collection, but the data is not used
     pub verified_collection_address: UncheckedAccount<'info>,
+    /// CHECK: This is used to identify the collection, but the data is not used
+    pub update_authority: UncheckedAccount<'info>,
+    /// CHECK: This is used as a seed to generate the PDA. The data does not matter
+    #[account(constraint = seed.key() == update_authority.key() || seed.key() == verified_collection_address.key())]
+    pub seed: UncheckedAccount<'info>,
     pub admin_config: Account<'info, Config>,
     pub system_program: Program<'info, System>,
 }
@@ -146,15 +166,21 @@ pub struct Config {
 
 #[account]
 pub struct CollectionListingRequest {
+    // Collection related public keys
     verified_collection_address: Pubkey,
     collection_update_authority: Pubkey,
     is_dao_approved: bool,
     auction_house: Pubkey,
+    governance: Pubkey,
+    // Properties for management
     admin_config: Pubkey,
     listing_requestor: Pubkey,
     fee: u64,
-    token_type: String,
+    // Collection information
     name: String,
+    vanity_url: String,
+    token_type: String,
     meta_data_url: String,
+    // Account validation information
     bump: u8
 }
