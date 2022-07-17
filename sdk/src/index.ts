@@ -1,19 +1,23 @@
-import {PublicKey, SystemProgram, Transaction} from "@solana/web3.js"
+import {PublicKey, SystemProgram} from "@solana/web3.js"
 import { GrapeCollectionState, IDL } from "../../target/types/grape_collection_state"
 import * as anchor from "@project-serum/anchor"
 import {Program} from "@project-serum/anchor";
-import bs58 from 'bs58';
 import {deserializeTokenAccount} from "./tokenAccountUtils";
 import {ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID} from "@solana/spl-token";
 import BN from "bn.js";
+import {
+    accountFilter,
+    approveOrDeny,
+    COLLECTION_BOARDING_INFO_SIZE,
+    getListingRequestFromCollectionAddress,
+    PROGRAM_ID
+} from "./utils";
 const CONFIGURATION_KEY = 'Aqaf2YUnJmqVk85tdQU3XFZmiTEnyaTtgGtGA6yFRDKk'
-const PROGRAM_ID = '8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3'
 const GRAPE_MARKETPLACE_TOKEN = '2ForzAxeVUUCh7TaQQRudoGkjMbJiQUmjhuyq6mkhyTp'
 // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
 // + 32 collection_update_authority + 1 is_dao_approved
 // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
 // + 32 listing_requestor + 1 bump + 8 fee
-const COLLECTION_BOARDING_INFO_SIZE = 8 + 4 + 200 + 32 + 32 + 1 + 32 + 32 + 4 + 200 + 32 + 1 + 8 + 4 + 40
 
 export type CollectionBoardingInfo = {
     name: string, // Maximum 200 characters
@@ -26,37 +30,6 @@ export type CollectionBoardingInfo = {
     token_type: string
 }
 
-const getListingRequestFromCollectionAddress = async (seed: PublicKey, configurationKey: PublicKey) => {
-    const [listingRequest, _] = await PublicKey.findProgramAddress(
-        [configurationKey.toBuffer(),seed.toBuffer()],
-        new PublicKey(PROGRAM_ID))
-    return listingRequest
-}
-
-const approveOrDeny = async (provider: anchor.AnchorProvider,
-                             program: Program<GrapeCollectionState>,
-                             verifiedCollectionAddress: PublicKey,
-                             configurationKey: PublicKey, approve: boolean,
-                             topOff : Transaction | null = null) => {
-    const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
-    console.log("This is the PDA", listingRequest.toBase58())
-    const listingRequestAccount = await program.account.collectionListingRequest.fetch(
-        listingRequest
-    )
-    console.log("This is the acct", listingRequestAccount)
-    let approveOrDenytx = await program.methods
-        .approve(approve)
-        .accounts({
-            collectionBoardingInfo: listingRequest,
-            admin: provider.wallet.publicKey,
-            adminConfig: configurationKey,
-            listingRequestor: listingRequestAccount.listingRequestor,
-        }).transaction()
-    if(topOff != null) {
-        approveOrDenytx = approveOrDenytx.add(topOff)
-    }
-    return provider.sendAndConfirm(approveOrDenytx)
-}
 
 export const useManageAdmin = (provider : anchor.AnchorProvider) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
@@ -113,9 +86,9 @@ export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = ne
                     lamports: (listingRequestAccount.fee.toNumber() + rentExemption) - listingRequestAccountInfo.lamports,
                 })
             );
-            return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, false, payFeeTx)
+            return await approveOrDeny(provider, program, seed, configurationKey, false, payFeeTx)
         }
-        return await approveOrDeny(provider, program, verifiedCollectionAddress, configurationKey, false)
+        return await approveOrDeny(provider, program, seed, configurationKey, false)
     }
 }}
 
@@ -145,17 +118,17 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
                 .initializeListingRequest(
                     collectionBoardingInfo.name,
                     collectionBoardingInfo.auction_house,
-                    collectionBoardingInfo.governance!,
+                    collectionBoardingInfo.governance || PublicKey.default,
                     collectionBoardingInfo.meta_data_url,
                     collectionBoardingInfo.vanity_url,
-                    collectionBoardingInfo.token_type
+                    collectionBoardingInfo.token_type,
                 )
                 .accounts({
-                    collectionBoardingInfo: listingRequest,
+                    collectionBoardingInfo: listingRequest || PublicKey.default,
                     listingRequestor: provider.wallet.publicKey,
-                    verifiedCollectionAddress: collectionBoardingInfo.verified_collection_address,
+                    verifiedCollectionAddress: collectionBoardingInfo.verified_collection_address || PublicKey.default,
                     updateAuthority: collectionBoardingInfo.collection_update_authority,
-                    seed: collectionBoardingInfo.verified_collection_address,
+                    seed: collectionBoardingInfo.verified_collection_address || collectionBoardingInfo.collection_update_authority,
                     adminConfig: configurationKey,
                     systemProgram: SystemProgram.programId,
                 }).transaction()
@@ -173,28 +146,6 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
                 .rpc();
         }
     }
-}
-
-const accountFilter = async (approved: boolean, provider: anchor.AnchorProvider, program: anchor.Program<GrapeCollectionState>, configurationKey: PublicKey) => {
-    const accounts = await provider.connection.getParsedProgramAccounts(new PublicKey(PROGRAM_ID),
-        { filters: [{dataSize: COLLECTION_BOARDING_INFO_SIZE},
-
-                {memcmp: {
-                        offset: 105, bytes: configurationKey.toBase58()}},
-                {memcmp: {
-                        offset: 72, bytes: bs58.encode([approved ? 1 : 0])}}]})
-    return Promise.all(accounts.map(async (acct) => {
-        const clr = await program.account.collectionListingRequest.fetch(acct.pubkey)
-        return {
-            name: clr.name,
-            verified_collection_address: clr.verifiedCollectionAddress,
-            collection_update_authority: clr.collectionUpdateAuthority,
-            auction_house: clr.auctionHouse,
-            meta_data_url: clr.metaDataUrl, // Maximum 200 characters
-            vanity_url: clr.vanityUrl,
-            token_type: clr.tokenType
-        }
-    }))
 }
 
 export const useListingQuery = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {

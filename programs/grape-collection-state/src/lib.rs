@@ -121,7 +121,7 @@ pub struct InitializeListingRequest<'info> {
     // + 4 name length + 200 name
     //  + 4 meta_data_url length + 200 meta_data_url
     //  + 1 bump
-    space = 8 + 32 + 32 + 1 + 32 + 32 + 8 + 32 + 4 + 40 + 4 + 200 + 4 + 200 + 1,
+    space = 8 + 32 + 32 + 1 +32 + 32 +32 +32 + 8 +4 + 100 + 4 + 200 + 4 + 40 + 4 + 200 + 1,
     seeds = [admin_config.key().as_ref(), seed.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionListingRequest>,
@@ -164,23 +164,25 @@ pub struct Config {
     fee: u64
 }
 
+
+
 #[account]
 pub struct CollectionListingRequest {
     // Collection related public keys
-    verified_collection_address: Pubkey,
-    collection_update_authority: Pubkey,
-    is_dao_approved: bool,
-    auction_house: Pubkey,
-    governance: Pubkey,
+    verified_collection_address: Pubkey, // 32
+    collection_update_authority: Pubkey, //32
+    is_dao_approved: bool, // 1
+    auction_house: Pubkey, // 32
+    governance: Pubkey, // 32
     // Properties for management
-    admin_config: Pubkey,
-    listing_requestor: Pubkey,
-    fee: u64,
+    admin_config: Pubkey, // 32
+    listing_requestor: Pubkey, // 32
+    fee: u64, // 8
     // Collection information
-    name: String,
-    vanity_url: String,
-    token_type: String,
-    meta_data_url: String,
+    name: String, // 4 + 100
+    vanity_url: String, // 4 + 200
+    token_type: String, // 4 + 40
+    meta_data_url: String, // 4 + 200
     // Account validation information
-    bump: u8
+    bump: u8 // 1
 }
