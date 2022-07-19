@@ -54,6 +54,15 @@ export const useManageAdmin = (provider : anchor.AnchorProvider) => {
                     adminConfig: adminConfig,
                 })
                 .rpc();
+        },
+        updateFee: async (fee: BN, adminConfig: PublicKey) => {
+            return program.methods
+                .setFee(fee)
+                .accounts({
+                    admin: provider.wallet.publicKey,
+                    adminConfig: adminConfig
+                })
+                .rpc();
         }
     }
 }
@@ -68,7 +77,6 @@ export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = ne
         const [listingRequest, _bump] = await PublicKey.findProgramAddress(
             [configurationKey.toBuffer(),seed.toBuffer()],
             new PublicKey(PROGRAM_ID))
-        console.log("This is the PDA", listingRequest.toBase58())
         // Check if listingRequest account has enough SOL to provide refund
         const listingRequestAccountInfo = await provider.connection.getAccountInfo(listingRequest);
         if (listingRequestAccountInfo == null)
@@ -99,8 +107,6 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
             const listingRequest = await getListingRequestFromCollectionAddress(
                 collectionBoardingInfo.verified_collection_address || collectionBoardingInfo.collection_update_authority,
                 configurationKey)
-            console.log('request', listingRequest.toBase58(), 'verified', (collectionBoardingInfo.verified_collection_address || collectionBoardingInfo.collection_update_authority).toBase58())
-
             // Get rent exemption listing requestor needs to pay
             const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
 
