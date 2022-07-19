@@ -1,13 +1,17 @@
 [features]
 seeds = false
 [programs.localnet]
-grape_collection_state = "8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3"
+grape_collection_state = "DxMn9z9sD9n9fdrvgfa9fuBngYcQXfcofGp2KRZwA7wj"
+
+[programs.devnet]
+grape_collection_state = "DxMn9z9sD9n9fdrvgfa9fuBngYcQXfcofGp2KRZwA7wj"
+
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/Users/kirk/.config/solana/id.json"
 
 [scripts]

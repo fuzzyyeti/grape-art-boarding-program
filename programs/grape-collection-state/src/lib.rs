@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3");
+declare_id!("DxMn9z9sD9n9fdrvgfa9fuBngYcQXfcofGp2KRZwA7wj");
 
 #[program]
 pub mod grape_collection_state {
