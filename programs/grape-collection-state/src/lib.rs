@@ -13,12 +13,12 @@ pub mod grape_collection_state {
                                       meta_data_url: String,
                                       vanity_url: String,
                                       token_type: String) -> Result<()> {
-        if let Some(pubKey) = governance {
-            ctx.accounts.collection_boarding_info.governance = pubKey;
+        if let Some(pub_key) = governance {
+            ctx.accounts.collection_boarding_info.governance = pub_key;
         } else {
             ctx.accounts.collection_boarding_info.governance = Pubkey::default();
         }
-        let (listing_request_pda, bump) = Pubkey::find_program_address(
+        let (listing_request_pda, _bump) = Pubkey::find_program_address(
             &[
                 &ctx.accounts.admin_config.key().as_ref(),
                 &ctx.accounts.seed.key().as_ref()],
