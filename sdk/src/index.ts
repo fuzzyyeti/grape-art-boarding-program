@@ -13,7 +13,7 @@ import {
     PROGRAM_ID
 } from "./utils";
 const CONFIGURATION_KEY = 'Aqaf2YUnJmqVk85tdQU3XFZmiTEnyaTtgGtGA6yFRDKk'
-const GRAPE_MARKETPLACE_TOKEN = '2ForzAxeVUUCh7TaQQRudoGkjMbJiQUmjhuyq6mkhyTp'
+const GRAPE_MARKETPLACE_TOKEN = '72sYUZCgcWZJR1UnNgwxCJdTRAARiEm9nFm5TFB5j2Nx'
 // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
 // + 32 collection_update_authority + 1 is_dao_approved
 // + 32 auction_house + 32 admin_config + 4 meta_data_url length + 200 meta_data_url
@@ -188,7 +188,7 @@ export const useListingQuery = (provider : anchor.AnchorProvider, configurationK
             try {
                 const acct = await provider.connection.getAccountInfo(associatedTokenAccount)
                 const res = await deserializeTokenAccount(acct!.data)
-                return res.amount.gt(new BN(0))
+                return res.amount.gte(new BN(1))
             }
             catch (e) {
                 return false
