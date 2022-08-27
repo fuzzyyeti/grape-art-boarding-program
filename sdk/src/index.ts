@@ -103,7 +103,7 @@ export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = ne
 export const useListingRequest = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
-        requestListng: async (collectionBoardingInfo: CollectionBoardingInfo) => {
+        requestListing: async (collectionBoardingInfo: CollectionBoardingInfo) => {
             const listingRequest = await getListingRequestFromCollectionAddress(
                 collectionBoardingInfo.verified_collection_address || collectionBoardingInfo.collection_update_authority,
                 configurationKey)
