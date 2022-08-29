@@ -12,7 +12,7 @@ import {
     getListingRequestFromCollectionAddress,
     PROGRAM_ID
 } from "./utils";
-const CONFIGURATION_KEY = 'Aqaf2YUnJmqVk85tdQU3XFZmiTEnyaTtgGtGA6yFRDKk'
+const CONFIGURATION_KEY = 'Eb3pRdyww7P8ZxELwm9iTrkyQxqvk4v6aAKKKyLgWomh'
 const GRAPE_MARKETPLACE_TOKEN = '72sYUZCgcWZJR1UnNgwxCJdTRAARiEm9nFm5TFB5j2Nx'
 // space: 8 discriminator + 4 name length + 200 name + 32 verified_collection_address
 // + 32 collection_update_authority + 1 is_dao_approved
