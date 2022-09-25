@@ -22,6 +22,7 @@ const GRAPE_MARKETPLACE_TOKEN = '72sYUZCgcWZJR1UnNgwxCJdTRAARiEm9nFm5TFB5j2Nx'
 export type CollectionBoardingInfo = {
     name: string, // Maximum 200 characters
     collection_update_authority: PublicKey,
+    enabled: boolean,
     verified_collection_address?: PublicKey,
     governance?: PublicKey,
     auction_house: PublicKey,

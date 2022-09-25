@@ -11,7 +11,7 @@ export const getListingRequestFromCollectionAddress = async (seed: PublicKey, co
     return listingRequest
 }
 
-export const COLLECTION_BOARDING_INFO_SIZE = 8 + 32 + 32 + 1 +32 + 32 +32 +32 + 8 +4 + 100 + 4 + 200 + 4 + 40 + 4 + 200 + 1
+export const COLLECTION_BOARDING_INFO_SIZE = 8 + 32 + 32 + 1 + 32 + 32 +32 +32 + 8 +4 + 100 + 4 + 200 + 4 + 40 + 4 + 200 + 1
 
 
 export const approveOrDeny = async (provider: anchor.AnchorProvider,
@@ -42,13 +42,14 @@ export const accountFilter = async (approved: boolean, provider: anchor.AnchorPr
         { filters: [{dataSize: COLLECTION_BOARDING_INFO_SIZE},
 
                 {memcmp: {
-                        offset: 8 + 32 +32 + 1 + 32 + 32, bytes: configurationKey.toBase58()}},
+                        offset: 8 + 32 +32 + 1 + 1 + 32 + 32, bytes: configurationKey.toBase58()}},
                 {memcmp: {
                         offset: 8 + 32 + 32, bytes: bs58.encode([approved ? 1 : 0])}}]})
     return Promise.all(accounts.map(async (acct) => {
         const clr = await program.account.collectionListingRequest.fetch(acct.pubkey)
         return {
             name: clr.name,
+            enabled: clr.enable,
             verified_collection_address: clr.verifiedCollectionAddress,
             collection_update_authority: clr.collectionUpdateAuthority,
             auction_house: clr.auctionHouse,
