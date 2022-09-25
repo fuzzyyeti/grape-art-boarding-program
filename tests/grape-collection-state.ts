@@ -124,6 +124,7 @@ describe("grape-collection-state", () => {
     );
     expect(collection.auctionHouse).to.eql(auctionHouse.publicKey);
     expect(collection.isDaoApproved).is.false;
+    expect(collection.enable).is.true;
     expect(collection.name).to.eql("Loquacious Ladybugs");
     expect(collection.tokenType).to.eql("test type");
     expect(collection.metaDataUrl).to.eql(META_DATA_URL);
@@ -153,7 +154,38 @@ describe("grape-collection-state", () => {
     );
     expect(adminAccount.lamports).to.eql(LAMPORTS_PER_SOL);
 
-  //   //Deny the collection
+    // Disable the collection
+      await program.methods
+          .enable(false)
+          .accounts({
+              collectionBoardingInfo,
+              admin: adminKey.publicKey,
+              adminConfig: configKey.publicKey,
+              listingRequestor: listingRequestor.publicKey,
+          })
+          .signers([adminKey])
+          .rpc();
+      collection = await program.account.collectionListingRequest.fetch(
+          collectionBoardingInfo
+      );
+      expect(collection.enable).is.false;
+    // Re-enable the collection
+      await program.methods
+          .enable(true)
+          .accounts({
+              collectionBoardingInfo,
+              admin: adminKey.publicKey,
+              adminConfig: configKey.publicKey,
+              listingRequestor: listingRequestor.publicKey,
+          })
+          .signers([adminKey])
+          .rpc();
+      collection = await program.account.collectionListingRequest.fetch(
+          collectionBoardingInfo
+      );
+      expect(collection.enable).is.true;
+
+      // Deny the collection
     let returnFeeTx = new anchor.web3.Transaction().add(
       SystemProgram.transfer({
         fromPubkey: listingRequestor.publicKey,

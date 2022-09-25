@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("DxMn9z9sD9n9fdrvgfa9fuBngYcQXfcofGp2KRZwA7wj");
+declare_id!("8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3");
 
 #[program]
 pub mod grape_collection_state {
@@ -35,11 +35,17 @@ pub mod grape_collection_state {
         ctx.accounts.collection_boarding_info.meta_data_url = meta_data_url;
         ctx.accounts.collection_boarding_info.vanity_url = vanity_url;
         ctx.accounts.collection_boarding_info.is_dao_approved = false;
+        ctx.accounts.collection_boarding_info.enable = true;
         ctx.accounts.collection_boarding_info.listing_requestor = ctx.accounts.listing_requestor.key();
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
         ctx.accounts.collection_boarding_info.admin_config = ctx.accounts.admin_config.key();
         ctx.accounts.collection_boarding_info.fee = ctx.accounts.admin_config.fee;
         ctx.accounts.collection_boarding_info.token_type = token_type;
+        Ok(())
+    }
+
+    pub fn enable(ctx: Context<Admin>, is_enabled: bool) -> Result<()> {
+        ctx.accounts.collection_boarding_info.enable = is_enabled;
         Ok(())
     }
 
@@ -172,6 +178,7 @@ pub struct CollectionListingRequest {
     verified_collection_address: Pubkey, // 32
     collection_update_authority: Pubkey, //32
     is_dao_approved: bool, // 1
+    enable: bool, // 1
     auction_house: Pubkey, // 32
     governance: Pubkey, // 32
     // Properties for management

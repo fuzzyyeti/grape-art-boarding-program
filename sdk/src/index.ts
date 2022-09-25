@@ -70,37 +70,59 @@ export const useManageAdmin = (provider : anchor.AnchorProvider) => {
 export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
-    approveListing: async (seed: PublicKey) => {
-        return await approveOrDeny(provider, program, seed, configurationKey, true)
-    },
-    denyListing: async (seed: PublicKey) => {
-        const [listingRequest, _bump] = await PublicKey.findProgramAddress(
-            [configurationKey.toBuffer(),seed.toBuffer()],
-            new PublicKey(PROGRAM_ID))
-        // Check if listingRequest account has enough SOL to provide refund
-        const listingRequestAccountInfo = await provider.connection.getAccountInfo(listingRequest);
-        if (listingRequestAccountInfo == null)
-        {
-            throw Error(`Invalid listing request PDA ${listingRequest.toBase58()}`)
-        }
-        const listingRequestAccount = await program.account.collectionListingRequest.fetch(listingRequest);
-        const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
-        if(listingRequestAccountInfo.lamports < (listingRequestAccount.fee + rentExemption)) {
-            //Fund account to provide refund
-            let payFeeTx = new anchor.web3.Transaction().add(
-                SystemProgram.transfer({
-                    fromPubkey: provider.wallet.publicKey,
-                    toPubkey: listingRequest,
-                    lamports: (listingRequestAccount.fee.toNumber() + rentExemption) - listingRequestAccountInfo.lamports,
-                })
-            );
-            return await approveOrDeny(provider, program, seed, configurationKey, false, payFeeTx)
-        }
-        return await approveOrDeny(provider, program, seed, configurationKey, false)
+        approveListing: async (seed: PublicKey) => {
+            return await approveOrDeny(provider, program, seed, configurationKey, true)
+        },
+        denyListing: async (seed: PublicKey) => {
+            const [listingRequest, _bump] = await PublicKey.findProgramAddress(
+                [configurationKey.toBuffer(), seed.toBuffer()],
+                new PublicKey(PROGRAM_ID))
+            // Check if listingRequest account has enough SOL to provide refund
+            const listingRequestAccountInfo = await provider.connection.getAccountInfo(listingRequest);
+            if (listingRequestAccountInfo == null) {
+                throw Error(`Invalid listing request PDA ${listingRequest.toBase58()}`)
+            }
+            const listingRequestAccount = await program.account.collectionListingRequest.fetch(listingRequest);
+            const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
+            if (listingRequestAccountInfo.lamports < (listingRequestAccount.fee + rentExemption)) {
+                //Fund account to provide refund
+                let payFeeTx = new anchor.web3.Transaction().add(
+                    SystemProgram.transfer({
+                        fromPubkey: provider.wallet.publicKey,
+                        toPubkey: listingRequest,
+                        lamports: (listingRequestAccount.fee.toNumber() + rentExemption) - listingRequestAccountInfo.lamports,
+                    })
+                );
+                return await approveOrDeny(provider, program, seed, configurationKey, false, payFeeTx)
+            }
+            return await approveOrDeny(provider, program, seed, configurationKey, false)
+        },
+        setEnableListing: async (seed: PublicKey, isEnabled: boolean) => {
+            const listingRequest = await getListingRequestFromCollectionAddress(seed, configurationKey)
+            const listingRequestAccount = await program.account.collectionListingRequest.fetch(
+                listingRequest
+            )
+            let enableOrDisabletx = await program.methods
+                .enable(isEnabled)
+                .accounts({
+                    collectionBoardingInfo: listingRequest,
+                    admin: provider.wallet.publicKey,
+                    adminConfig: configurationKey,
+                    listingRequestor: listingRequestAccount.listingRequestor,
+                }).transaction()
+            return provider.sendAndConfirm(enableOrDisabletx)
+        },
     }
-}}
+}
 
-export const useListingRequest = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+
+export const useListingRequest = (provider : anchor.AnchorProvider | null, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+    if(!provider) {
+        return {
+            requestListing: null,
+            requestListingRefund: null
+        }
+    }
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
         requestListing: async (collectionBoardingInfo: CollectionBoardingInfo) => {
@@ -111,8 +133,9 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
             const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
 
             // Get fee listing requestor needs to pay
+            console.log("fetch config acccount")
             const adm = await program.account.config.fetch(configurationKey)
-
+            console.log("config account", adm)
             let payFeeTx = new anchor.web3.Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: provider.wallet.publicKey,
@@ -120,6 +143,7 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
                     lamports: adm.fee.toNumber() + rentExemption,
                 })
             );
+            console.log("Undefined?", collectionBoardingInfo, program, listingRequest)
             const initTx = await program.methods
                 .initializeListingRequest(
                     collectionBoardingInfo.name,
@@ -138,6 +162,7 @@ export const useListingRequest = (provider : anchor.AnchorProvider, configuratio
                     adminConfig: configurationKey,
                     systemProgram: SystemProgram.programId,
                 }).transaction()
+            console.log('payfee', payFeeTx)
             const bothTx = payFeeTx.add(initTx)
             return Promise.all([provider.sendAndConfirm(bothTx), listingRequest.toBase58()])
         },

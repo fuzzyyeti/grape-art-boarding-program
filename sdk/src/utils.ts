@@ -16,15 +16,13 @@ export const COLLECTION_BOARDING_INFO_SIZE = 8 + 32 + 32 + 1 +32 + 32 +32 +32 + 
 
 export const approveOrDeny = async (provider: anchor.AnchorProvider,
                              program: anchor.Program<GrapeCollectionState>,
-                             verifiedCollectionAddress: PublicKey,
+                             seed: PublicKey,
                              configurationKey: PublicKey, approve: boolean,
                              topOff : Transaction | null = null) => {
-    const listingRequest = await getListingRequestFromCollectionAddress(verifiedCollectionAddress, configurationKey)
-    console.log("This is the PDA", listingRequest.toBase58())
+    const listingRequest = await getListingRequestFromCollectionAddress(seed, configurationKey)
     const listingRequestAccount = await program.account.collectionListingRequest.fetch(
         listingRequest
     )
-    console.log("This is the acct", listingRequestAccount)
     let approveOrDenytx = await program.methods
         .approve(approve)
         .accounts({
