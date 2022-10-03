@@ -32,9 +32,36 @@ export const approveOrDeny = async (provider: anchor.AnchorProvider,
             listingRequestor: listingRequestAccount.listingRequestor,
         }).transaction()
     if(topOff != null) {
-        approveOrDenytx = approveOrDenytx.add(topOff)
+        return provider.sendAndConfirm(topOff.add(approveOrDenytx))
     }
     return provider.sendAndConfirm(approveOrDenytx)
+}
+
+export const accountFilterByRequestor = async (approved: boolean, provider: anchor.AnchorProvider, program: anchor.Program<GrapeCollectionState>, configurationKey: PublicKey) => {
+  const accounts = await provider.connection.getParsedProgramAccounts(new PublicKey(PROGRAM_ID),
+    { filters: [{dataSize: COLLECTION_BOARDING_INFO_SIZE},
+
+        {memcmp: {
+            offset: 8 + 32 +32 + 1 + 1 + 32 + 32, bytes: configurationKey.toBase58()}},
+        {memcmp: {
+            offset: 8 + 32 + 32, bytes: bs58.encode([approved ? 1 : 0])}},
+        {memcmp: {
+          offset: 8 + 32 + 32 + 1 + 1 + 32 + 32 + 32, bytes: provider.wallet.publicKey.toBase58()}},
+          ]})
+  return Promise.all(accounts.map(async (acct) => {
+    const clr = await program.account.collectionListingRequest.fetch(acct.pubkey)
+    return {
+      name: clr.name,
+      enabled: clr.enable,
+      verified_collection_address: clr.verifiedCollectionAddress,
+      collection_update_authority: clr.collectionUpdateAuthority,
+      auction_house: clr.auctionHouse,
+      meta_data_url: clr.metaDataUrl, // Maximum 200 characters
+      vanity_url: clr.vanityUrl,
+      token_type: clr.tokenType,
+      listing_requester: clr.listingRequestor
+    }
+  }))
 }
 
 export const accountFilter = async (approved: boolean, provider: anchor.AnchorProvider, program: anchor.Program<GrapeCollectionState>, configurationKey: PublicKey) => {
@@ -55,7 +82,8 @@ export const accountFilter = async (approved: boolean, provider: anchor.AnchorPr
             auction_house: clr.auctionHouse,
             meta_data_url: clr.metaDataUrl, // Maximum 200 characters
             vanity_url: clr.vanityUrl,
-            token_type: clr.tokenType
+            token_type: clr.tokenType,
+            listing_requester: clr.listingRequestor
         }
     }))
 }

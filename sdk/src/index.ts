@@ -6,7 +6,7 @@ import {deserializeTokenAccount} from "./tokenAccountUtils";
 import {ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID} from "@solana/spl-token";
 import BN from "bn.js";
 import {
-    accountFilter,
+    accountFilter, accountFilterByRequestor,
     approveOrDeny,
     COLLECTION_BOARDING_INFO_SIZE,
     getListingRequestFromCollectionAddress,
@@ -29,10 +29,18 @@ export type CollectionBoardingInfo = {
     meta_data_url: string, // Maximum 200 characters
     vanity_url: string
     token_type: string
+    listing_requester: PublicKey
 }
 
 
 export const useManageAdmin = (provider : anchor.AnchorProvider) => {
+    if(!provider) {
+        return {
+            createConfig: null,
+            updateAdmin: null,
+            updateFee: null,
+        }
+    }
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
         createConfig: async (fee: BN) => {
@@ -64,11 +72,19 @@ export const useManageAdmin = (provider : anchor.AnchorProvider) => {
                     adminConfig: adminConfig
                 })
                 .rpc();
-        }
+        },
     }
 }
 
 export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+    if(!provider) {
+        return {
+            approveListing: null,
+            denyListing: null,
+            setEnableListing: null,
+            isAdmin: null,
+        }
+    }
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     return {
         approveListing: async (seed: PublicKey) => {
@@ -113,6 +129,10 @@ export const useAdmin = (provider: anchor.AnchorProvider,  configurationKey = ne
                 }).transaction()
             return provider.sendAndConfirm(enableOrDisabletx)
         },
+        isAdmin: async (admin: PublicKey) => {
+            const config = await program.account.config.fetch(configurationKey)
+            return config.admin.equals(admin)
+        }
     }
 }
 
@@ -134,9 +154,7 @@ export const useListingRequest = (provider : anchor.AnchorProvider | null, confi
             const rentExemption = await provider.connection.getMinimumBalanceForRentExemption(COLLECTION_BOARDING_INFO_SIZE);
 
             // Get fee listing requestor needs to pay
-            console.log("fetch config acccount")
             const adm = await program.account.config.fetch(configurationKey)
-            console.log("config account", adm)
             let payFeeTx = new anchor.web3.Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: provider.wallet.publicKey,
@@ -144,7 +162,6 @@ export const useListingRequest = (provider : anchor.AnchorProvider | null, confi
                     lamports: adm.fee.toNumber() + rentExemption,
                 })
             );
-            console.log("Undefined?", collectionBoardingInfo, program, listingRequest)
             const initTx = await program.methods
                 .initializeListingRequest(
                     collectionBoardingInfo.name,
@@ -163,7 +180,6 @@ export const useListingRequest = (provider : anchor.AnchorProvider | null, confi
                     adminConfig: configurationKey,
                     systemProgram: SystemProgram.programId,
                 }).transaction()
-            console.log('payfee', payFeeTx)
             const bothTx = payFeeTx.add(initTx)
             return Promise.all([provider.sendAndConfirm(bothTx), listingRequest.toBase58()])
         },
@@ -180,7 +196,18 @@ export const useListingRequest = (provider : anchor.AnchorProvider | null, confi
     }
 }
 
-export const useListingQuery = (provider : anchor.AnchorProvider, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+export const useListingQuery = (provider : anchor.AnchorProvider | null, configurationKey = new PublicKey(CONFIGURATION_KEY)) => {
+    if(!provider) {
+        return {
+            getListingRequest: null,
+            getAllApprovedListings: null,
+            getAllPendingListings: null,
+            getApprovedListings: null,
+            getPendingListings: null,
+            isApproved: null,
+            hasToken: null,
+        }
+    }
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
     const getLisingRequest = async (seed: PublicKey) => {
         const listingRequest = await getListingRequestFromCollectionAddress(seed, configurationKey)
@@ -194,6 +221,14 @@ export const useListingQuery = (provider : anchor.AnchorProvider, configurationK
         },
         getAllPendingListings: async () : Promise<CollectionBoardingInfo[]> => {
             return accountFilter(false, provider, program, configurationKey)
+        },
+
+        getAllApprovedListingsByRequestor: async () : Promise<CollectionBoardingInfo[]> => {
+            return accountFilterByRequestor(true, provider, program, configurationKey)
+
+        },
+        getAllPendingListingsByRequestor: async () : Promise<CollectionBoardingInfo[]> => {
+            return accountFilterByRequestor(false, provider, program, configurationKey)
         },
 
         isApproved: async (verifiedCollectionAddress: PublicKey) => {
