@@ -141,7 +141,8 @@ export const useListingRequest = (provider : anchor.AnchorProvider | null, confi
     if(!provider) {
         return {
             requestListing: null,
-            requestListingRefund: null
+            requestListingRefund: null,
+            updateMetadataUrl: null
         }
     }
     const program = new Program<GrapeCollectionState>(IDL, new PublicKey(PROGRAM_ID), provider)
@@ -192,6 +193,16 @@ export const useListingRequest = (provider : anchor.AnchorProvider | null, confi
                     collectionBoardingInfo: listingRequest
                 })
                 .rpc();
+        },
+        updateMetadataUrl: async (seed: PublicKey, newUrl: string) => {
+            const listingRequest = await getListingRequestFromCollectionAddress(seed, configurationKey)
+            return await program.methods
+              .updateMetadata(newUrl)
+              .accounts({
+                  modifier: provider.wallet.publicKey,
+                  collectionBoardingInfo: listingRequest
+              })
+              .rpc();
         }
     }
 }
