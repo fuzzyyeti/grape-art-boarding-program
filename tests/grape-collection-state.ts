@@ -413,6 +413,35 @@ describe("grape-collection-state", () => {
           adminKey.publicKey
       );
       expect(adminAccount.lamports).to.eql(LAMPORTS_PER_SOL/2);
+
+      // Update metadata URL as listing requestor
+
+      await program.methods
+          .updateMetadata("http://newmetadata")
+          .accounts({
+              modifier: listingRequestor.publicKey,
+              collectionBoardingInfo,
+          })
+          .signers([listingRequestor])
+          .rpc();
+      collection = await program.account.collectionListingRequest.fetch(
+          collectionBoardingInfo
+      );
+      expect(collection.metaDataUrl).to.eql("http://newmetadata");
+
+      // Update metadata URL as update authority
+      await program.methods
+          .updateMetadata("http://newmetadata2")
+          .accounts({
+              modifier: collectionUpdateAuthority.publicKey,
+              collectionBoardingInfo,
+          })
+          .signers([collectionUpdateAuthority])
+          .rpc();
+      collection = await program.account.collectionListingRequest.fetch(
+          collectionBoardingInfo
+      );
+      expect(collection.metaDataUrl).to.eql("http://newmetadata2");
   })
 
 });

@@ -89,6 +89,11 @@ pub mod grape_collection_state {
         ctx.accounts.admin_config.fee = new_fee;
         Ok(())
     }
+
+    pub fn update_metadata(ctx: Context<MetaDataMod>, new_metadata_url: String) -> Result<()>{
+        ctx.accounts.collection_boarding_info.meta_data_url = new_metadata_url;
+        Ok(())
+    }
 }
 
 
@@ -100,7 +105,14 @@ pub struct Refund<'info> {
     pub collection_boarding_info: Account<'info, CollectionListingRequest>
 }
 
-
+#[derive(Accounts)]
+pub struct MetaDataMod<'info> {
+    #[account(constraint = modifier.key().eq(&collection_boarding_info.listing_requestor.key())
+    || modifier.key().eq(&collection_boarding_info.collection_update_authority.key()))]
+    pub modifier: Signer<'info>,
+    #[account(mut)]
+    pub collection_boarding_info: Account<'info, CollectionListingRequest>,
+}
 
 #[derive(Accounts)]
 pub struct Admin<'info> {
