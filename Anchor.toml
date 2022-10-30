@@ -1,10 +1,10 @@
 [features]
 seeds = false
 [programs.localnet]
-grape_collection_state = "8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3"
+grape_collection_state = "Es13ramf2tnaFFnvGe1A3vPQ7MJvG9G7kbBVwWwmuZP7"
 
 [programs.devnet]
-grape_collection_state = "8Dk32gShk85fpj2xDC99p3svCrWDuJf8tQ9JWWfddev3"
+grape_collection_state = "Es13ramf2tnaFFnvGe1A3vPQ7MJvG9G7kbBVwWwmuZP7"
 
 
 [registry]
