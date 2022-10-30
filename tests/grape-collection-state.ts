@@ -99,7 +99,8 @@ describe("grape-collection-state", () => {
         governance.publicKey,
         META_DATA_URL,
         VANITY_URL,
-        "test type"
+        "test type",
+        1
       )
       .accounts({
           collectionBoardingInfo,
@@ -131,6 +132,7 @@ describe("grape-collection-state", () => {
     expect(collection.vanityUrl).to.eql(VANITY_URL);
     expect(collection.adminConfig).to.eql(configKey.publicKey);
     expect(collection.governance).to.eql(governance.publicKey);
+    expect(collection.requestType).to.eql(1);
     expect((new BN(LAMPORTS_PER_SOL)).eq(collection.fee)).to.eql(true);
 
     // Approve collection
@@ -375,7 +377,8 @@ describe("grape-collection-state", () => {
               governance.publicKey,
               META_DATA_URL,
               VANITY_URL,
-              "test type"
+              "test type",
+              1
           )
           .accounts({
               collectionBoardingInfo,

@@ -12,7 +12,8 @@ pub mod grape_collection_state {
                                       governance: Option<Pubkey>,
                                       meta_data_url: String,
                                       vanity_url: String,
-                                      token_type: String) -> Result<()> {
+                                      token_type: String,
+                                      request_type: u8) -> Result<()> {
         if let Some(pub_key) = governance {
             ctx.accounts.collection_boarding_info.governance = pub_key;
         } else {
@@ -36,6 +37,7 @@ pub mod grape_collection_state {
         ctx.accounts.collection_boarding_info.vanity_url = vanity_url;
         ctx.accounts.collection_boarding_info.is_dao_approved = false;
         ctx.accounts.collection_boarding_info.enable = true;
+        ctx.accounts.collection_boarding_info.request_type = request_type;
         ctx.accounts.collection_boarding_info.listing_requestor = ctx.accounts.listing_requestor.key();
         ctx.accounts.collection_boarding_info.bump = *ctx.bumps.get("collection_boarding_info").unwrap();
         ctx.accounts.collection_boarding_info.admin_config = ctx.accounts.admin_config.key();
@@ -131,15 +133,7 @@ pub struct Admin<'info> {
 pub struct InitializeListingRequest<'info> {
     #[account(init,
     payer = listing_requestor,
-    // space: 8 discriminator + 32 verified_collection_address
-    // + 32 collection_update_authority + 1 is_dao_approved
-    // + 32 auction_house
-    // + 32 listing_requestor + 8 fee
-    // + 32 admin_confg 4 listing_type length + 40 listing_type
-    // + 4 name length + 200 name
-    //  + 4 meta_data_url length + 200 meta_data_url
-    //  + 1 bump
-    space = 8 + 32 + 32 + 1 +32 + 32 +32 +32 + 8 +4 + 100 + 4 + 200 + 4 + 40 + 4 + 200 + 1,
+    space = 8 + 32 + 32 + 1 + 1 + 1 + 32 + 32 + 32 + 32 + 8 + 4 + 100 + 4 + 200 + 4 + 40 + 4 + 200 + 1,
     seeds = [admin_config.key().as_ref(), seed.key().as_ref()],
     bump)]
     pub collection_boarding_info: Account<'info, CollectionListingRequest>,
@@ -182,8 +176,6 @@ pub struct Config {
     fee: u64
 }
 
-
-
 #[account]
 pub struct CollectionListingRequest {
     // Collection related public keys
@@ -191,6 +183,7 @@ pub struct CollectionListingRequest {
     collection_update_authority: Pubkey, //32
     is_dao_approved: bool, // 1
     enable: bool, // 1
+    request_type: u8, // 1
     auction_house: Pubkey, // 32
     governance: Pubkey, // 32
     // Properties for management
