@@ -1,6 +1,6 @@
 {
   "name": "grape-art-listing-request",
-  "version": "0.0.20",
+  "version": "0.0.22",
   "description": "SDK for interacting with the on-chain program for requesting a listing on the NFT marketplaece, Grape.art.",
   "main": "./dist/sdk/src/index.js",
   "scripts": {
