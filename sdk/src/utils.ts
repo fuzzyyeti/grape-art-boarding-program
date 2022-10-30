@@ -134,10 +134,9 @@ export const accountFilter = async (
     {
       filters: [
         { dataSize: COLLECTION_BOARDING_INFO_SIZE },
-
         {
           memcmp: {
-            offset: 8 + 32 + 32 + 1 + 1 + 32 + 32,
+            offset: 8 + 32 + 32 + 1 + 1 + 1 + 32 + 32,
             bytes: configurationKey.toBase58(),
           },
         },
@@ -150,7 +149,7 @@ export const accountFilter = async (
       ],
     }
   );
-  console.log(accounts)
+
   return Promise.all(
     accounts.map(async (acct) => {
       const clr = await program.account.collectionListingRequest.fetch(
