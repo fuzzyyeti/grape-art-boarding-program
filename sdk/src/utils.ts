@@ -6,7 +6,7 @@ import {
   IDL,
 } from "../../target/types/grape_collection_state";
 
-export const PROGRAM_ID = "Es13ramf2tnaFFnvGe1A3vPQ7MJvG9G7kbBVwWwmuZP7";
+export const PROGRAM_ID = "FcCRwJNwHSEQnpsWof5RWsHPrEtaWVrRzb16C8CeAJwa";
 export const getListingRequestFromCollectionAddress = async (
   seed: PublicKey,
   configurationKey: PublicKey
@@ -149,7 +149,6 @@ export const accountFilter = async (
       ],
     }
   );
-
   return Promise.all(
     accounts.map(async (acct) => {
       const clr = await program.account.collectionListingRequest.fetch(

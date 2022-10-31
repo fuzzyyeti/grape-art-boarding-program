@@ -19,7 +19,7 @@ import {
   getListingRequestFromCollectionAddress,
   PROGRAM_ID,
 } from "./utils";
-const CONFIGURATION_KEY = "Eb3pRdyww7P8ZxELwm9iTrkyQxqvk4v6aAKKKyLgWomh";
+const CONFIGURATION_KEY = "GjBP4p7p8GNbekJgWLzhowUNXRuAHb2TSiCP8d4G7dvY";
 const GRAPE_MARKETPLACE_TOKEN = "72sYUZCgcWZJR1UnNgwxCJdTRAARiEm9nFm5TFB5j2Nx";
 
 export type CollectionBoardingInfo = {
